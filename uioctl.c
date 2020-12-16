@@ -2,6 +2,7 @@
  * uioctl.c: Userspace I/O manipulation utility
  *
  * Copyright (C) 2013, Bryan Newbold <bnewbold@leaflabs.com>
+ * Copyright (C) 2020, Lucas Brasilino <lucas.brasilino@gmail.com>
  *
  * GPLv3 License
  * This program is free software: you can redistribute it and/or modify
@@ -18,6 +19,7 @@
  * Changelog:
  *  2013-12-04: bnewbold: Initial version; missing width management, list mode
  *  2013-12-19: bnewbold: GPLv3; fix mmap size
+ *  2020-12-16: lucas.brasilino: add support to 8 bytes word size
  *
  */
 
@@ -29,6 +31,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <unistd.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/timeb.h>
 
@@ -68,6 +71,17 @@ static void list_devices() {
     // - for each in the above, print memory regions
     fprintf(stderr, "listing not yet implemented\n");
     exit(EXIT_FAILURE);
+}
+
+static char *get_pformat(int w) {
+    char *plen = calloc(3,sizeof(char));
+    char *pf = calloc(16,sizeof(char));
+    strncpy(pf,"0x%08x\t%0",10);
+    snprintf(plen,3,"%d",w*2);
+    strncat(pf,plen,2);
+    strncat(pf,"x\n",3);
+    //dx\n",(w*2));
+    return pf;
 }
 
 static void monitor(char *fpath, int forever) {
@@ -112,7 +126,8 @@ int main(int argc, char *argv[]) {
     enum mode_type mode = MODE_READ;
     char *fpath;
     void *ptr;
-    int map_size, value, addr;
+    int map_size, addr;
+    long value;
     int region = 0;
     int count = 1;
     int width = DEFAULT_WIDTH;
@@ -156,8 +171,8 @@ int main(int argc, char *argv[]) {
                 perror("uioctl");
                 exit(EXIT_FAILURE);
             }
-            if (width != 4) {
-                fprintf(stderr, "width != 4 not yet implemented\n");
+            if (width & ~0x1c) {
+                fprintf(stderr, "width must be 4 or 8 bytes\n");
                 exit(EXIT_FAILURE);
             }
             break;
@@ -224,11 +239,13 @@ int main(int argc, char *argv[]) {
     }
 
     if (mode == MODE_READ) {
+        char *pformat = get_pformat(width);
         for (; count > 0; count--) {
             value = *((unsigned *) (ptr + addr));
-            printf("0x%08x\t%08x\n", addr, value);
+            printf(pformat, addr, value);
             addr += width;
         }
+        free (pformat);
     } else {
         *((unsigned *)(ptr + addr)) = value;
     }
