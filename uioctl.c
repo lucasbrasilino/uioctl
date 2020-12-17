@@ -74,13 +74,17 @@ static void list_devices() {
 }
 
 static char *get_pformat(int w) {
+    char *pri = PRIx32;
     char *plen = calloc(3,sizeof(char));
     char *pf = calloc(16,sizeof(char));
     strncpy(pf,"0x%08x\t%0",10);
     snprintf(plen,3,"%d",w*2);
     strncat(pf,plen,2);
-    strncat(pf,"x\n",3);
-    //dx\n",(w*2));
+
+    if (w == 8)
+	pri = PRIx64;
+    strncat(pf,pri,strlen(pri));
+    strncat(pf,"\n\0",2);
     return pf;
 }
 
@@ -126,8 +130,8 @@ int main(int argc, char *argv[]) {
     enum mode_type mode = MODE_READ;
     char *fpath;
     void *ptr;
-    int map_size, addr;
-    long value;
+    int map_size;
+    long addr, value;
     int region = 0;
     int count = 1;
     int width = DEFAULT_WIDTH;
@@ -241,7 +245,8 @@ int main(int argc, char *argv[]) {
     if (mode == MODE_READ) {
         char *pformat = get_pformat(width);
         for (; count > 0; count--) {
-            value = *((unsigned *) (ptr + addr));
+            value = (width == 4) ? *((unsigned *) (ptr + addr)) :
+                                   *((unsigned long *) (ptr + addr));
             printf(pformat, addr, value);
             addr += width;
         }
